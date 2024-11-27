@@ -10,6 +10,7 @@ import {
   BookOpen,
   Menu,
   GraduationCap,
+  FileQuestion,
 } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { useState } from "react";
@@ -34,6 +35,11 @@ const routes = [
     label: "Cursos",
     icon: BookOpen,
     href: "/admin/courses",
+  },
+  {
+    label: "Resultados Quizzes",
+    icon: FileQuestion,
+    href: "/admin/quiz/responses",
   },
 ];
 
@@ -94,7 +100,7 @@ export function AdminNav() {
                 : "hover:bg-muted"
             )}
           >
-            <route.icon className="w-4 h-4" />
+            <route.icon className="w-4 " />
             {route.label}
           </Link>
         ))}

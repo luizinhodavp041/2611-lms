@@ -10,9 +10,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Pencil, Trash2, Plus, BookOpen } from "lucide-react";
+import { Edit, Trash2, BookOpen, FileQuestion } from "lucide-react";
+import Link from "next/link";
 import { EditCourseDialog } from "./edit-course-dialog";
 import { DeleteCourseDialog } from "./delete-course-dialog";
+import { CreateQuizDialog } from "../quiz/create-quiz-dialog";
 import { CreateCourseButton } from "./create-course-button";
 
 interface Course {
@@ -20,7 +22,6 @@ interface Course {
   title: string;
   description: string;
   modules: any[];
-  thumbnail?: string;
 }
 
 export function CoursesTable() {
@@ -28,6 +29,7 @@ export function CoursesTable() {
   const [loading, setLoading] = useState(true);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [deletingCourse, setDeletingCourse] = useState<Course | null>(null);
+  const [creatingQuiz, setCreatingQuiz] = useState<Course | null>(null);
 
   const fetchCourses = async () => {
     try {
@@ -63,7 +65,7 @@ export function CoursesTable() {
               <TableHead>Título</TableHead>
               <TableHead>Descrição</TableHead>
               <TableHead className="text-center">Módulos</TableHead>
-              <TableHead className="w-[100px]">Ações</TableHead>
+              <TableHead className="w-[150px]">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -81,7 +83,7 @@ export function CoursesTable() {
                       size="icon"
                       onClick={() => setEditingCourse(course)}
                     >
-                      <Pencil className="h-4 w-4" />
+                      <Edit className="h-4 w-4" />
                     </Button>
                     <Button
                       variant="ghost"
@@ -91,9 +93,16 @@ export function CoursesTable() {
                       <Trash2 className="h-4 w-4" />
                     </Button>
                     <Button variant="ghost" size="icon" asChild>
-                      <a href={`/admin/courses/${course._id}/modules`}>
+                      <Link href={`/admin/courses/${course._id}/modules`}>
                         <BookOpen className="h-4 w-4" />
-                      </a>
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setCreatingQuiz(course)}
+                    >
+                      <FileQuestion className="h-4 w-4" />
                     </Button>
                   </div>
                 </TableCell>
@@ -115,6 +124,16 @@ export function CoursesTable() {
         open={!!deletingCourse}
         onOpenChange={(open) => !open && setDeletingCourse(null)}
         onDelete={fetchCourses}
+      />
+
+      <CreateQuizDialog
+        course={creatingQuiz}
+        open={!!creatingQuiz}
+        onOpenChange={(open) => !open && setCreatingQuiz(null)}
+        onSuccess={() => {
+          setCreatingQuiz(null);
+          fetchCourses();
+        }}
       />
     </>
   );

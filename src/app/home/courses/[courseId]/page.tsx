@@ -9,8 +9,15 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { VideoPlayer } from "@/components/video/video-player";
-import { ChevronLeft, Play, CheckCircle, Circle } from "lucide-react";
+import {
+  ChevronLeft,
+  Play,
+  CheckCircle,
+  Circle,
+  FileQuestion,
+} from "lucide-react";
 import Link from "next/link";
+import { TakeQuizDialog } from "@/components/quiz/take-quiz-dialog";
 
 interface Lesson {
   _id: string;
@@ -33,6 +40,15 @@ interface Course {
   modules: Module[];
 }
 
+interface Quiz {
+  _id: string;
+  questions: {
+    question: string;
+    options: string[];
+    correctAnswer: number;
+  }[];
+}
+
 export default function CoursePage({
   params,
 }: {
@@ -42,10 +58,13 @@ export default function CoursePage({
   const [loading, setLoading] = useState(true);
   const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
   const [completedLessons, setCompletedLessons] = useState<string[]>([]);
+  const [quiz, setQuiz] = useState<Quiz | null>(null);
+  const [showQuiz, setShowQuiz] = useState(false);
 
   useEffect(() => {
     fetchCourse();
     fetchProgress();
+    fetchQuiz();
   }, []);
 
   const fetchCourse = async () => {
@@ -77,12 +96,22 @@ export default function CoursePage({
     }
   };
 
-  // Função para mudar a aula selecionada
+  const fetchQuiz = async () => {
+    try {
+      const response = await fetch(`/api/quiz?courseId=${params.courseId}`);
+      if (response.ok) {
+        const data = await response.json();
+        setQuiz(data);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar quiz:", error);
+    }
+  };
+
   const handleLessonSelect = (lesson: Lesson) => {
     setSelectedLesson(lesson);
   };
 
-  // Função para encontrar a próxima aula
   const findNextLesson = (currentLessonId: string) => {
     let foundCurrent = false;
     for (const module of course?.modules || []) {
@@ -98,14 +127,11 @@ export default function CoursePage({
     return null;
   };
 
-  // Callback para atualizar o progresso quando uma aula é completada
   const handleLessonComplete = async (lessonId: string) => {
-    // Atualiza o estado local imediatamente
     if (!completedLessons.includes(lessonId)) {
       setCompletedLessons((prev) => [...prev, lessonId]);
     }
 
-    // Encontra e seleciona a próxima aula
     if (selectedLesson) {
       const nextLesson = findNextLesson(selectedLesson._id);
       if (nextLesson) {
@@ -113,6 +139,11 @@ export default function CoursePage({
       }
     }
   };
+
+  // Verifica se todas as aulas foram completadas
+  const allLessonsCompleted = course?.modules.every((module) =>
+    module.lessons.every((lesson) => completedLessons.includes(lesson._id))
+  );
 
   if (loading) {
     return <div>Carregando...</div>;
@@ -124,21 +155,25 @@ export default function CoursePage({
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center gap-4">
         <Link href="/home/courses">
           <Button variant="outline" size="icon">
             <ChevronLeft className="h-4 w-4" />
           </Button>
         </Link>
-        <div>
+        <div className="flex-1">
           <h2 className="text-2xl font-bold tracking-tight">{course.title}</h2>
           <p className="text-muted-foreground">{course.description}</p>
         </div>
+        {allLessonsCompleted && quiz && (
+          <Button onClick={() => setShowQuiz(true)} variant="outline">
+            <FileQuestion className="h-4 w-4 mr-2" />
+            Quiz Final
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-6 md:grid-cols-[2fr,1fr]">
-        {/* Video Player and Lesson Info */}
         <div className="space-y-4">
           {selectedLesson && (
             <>
@@ -163,7 +198,6 @@ export default function CoursePage({
           )}
         </div>
 
-        {/* Course Content */}
         <div className="border rounded-lg">
           <Accordion type="single" collapsible className="w-full">
             {course.modules.map((module, moduleIndex) => (
@@ -203,6 +237,18 @@ export default function CoursePage({
           </Accordion>
         </div>
       </div>
+
+      {quiz && (
+        <TakeQuizDialog
+          quiz={quiz}
+          open={showQuiz}
+          onOpenChange={setShowQuiz}
+          onComplete={() => {
+            setShowQuiz(false);
+            // Aqui você pode adicionar lógica adicional após completar o quiz
+          }}
+        />
+      )}
     </div>
   );
 }
