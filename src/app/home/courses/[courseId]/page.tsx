@@ -15,6 +15,7 @@ import {
   CheckCircle,
   Circle,
   FileQuestion,
+  Lock,
 } from "lucide-react";
 import Link from "next/link";
 import { TakeQuizDialog } from "@/components/quiz/take-quiz-dialog";
@@ -49,6 +50,12 @@ interface Quiz {
   }[];
 }
 
+interface QuizResponse {
+  _id: string;
+  score: number;
+  completedAt: string;
+}
+
 export default function CoursePage({
   params,
 }: {
@@ -60,11 +67,13 @@ export default function CoursePage({
   const [completedLessons, setCompletedLessons] = useState<string[]>([]);
   const [quiz, setQuiz] = useState<Quiz | null>(null);
   const [showQuiz, setShowQuiz] = useState(false);
+  const [quizResponse, setQuizResponse] = useState<QuizResponse | null>(null);
 
   useEffect(() => {
     fetchCourse();
     fetchProgress();
     fetchQuiz();
+    fetchQuizResponse();
   }, []);
 
   const fetchCourse = async () => {
@@ -108,6 +117,20 @@ export default function CoursePage({
     }
   };
 
+  const fetchQuizResponse = async () => {
+    try {
+      const response = await fetch(
+        `/api/quiz/response/user?courseId=${params.courseId}`
+      );
+      if (response.ok) {
+        const data = await response.json();
+        setQuizResponse(data);
+      }
+    } catch (error) {
+      console.error("Erro ao carregar resposta do quiz:", error);
+    }
+  };
+
   const handleLessonSelect = (lesson: Lesson) => {
     setSelectedLesson(lesson);
   };
@@ -140,10 +163,24 @@ export default function CoursePage({
     }
   };
 
+  const handleQuizComplete = async () => {
+    setShowQuiz(false);
+    await fetchQuizResponse(); // Atualiza o estado do quiz após completá-lo
+  };
+
   // Verifica se todas as aulas foram completadas
   const allLessonsCompleted = course?.modules.every((module) =>
     module.lessons.every((lesson) => completedLessons.includes(lesson._id))
   );
+
+  // Função auxiliar para formatar a data
+  const formatDate = (date: string) => {
+    return new Date(date).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+    });
+  };
 
   if (loading) {
     return <div>Carregando...</div>;
@@ -166,10 +203,25 @@ export default function CoursePage({
           <p className="text-muted-foreground">{course.description}</p>
         </div>
         {allLessonsCompleted && quiz && (
-          <Button onClick={() => setShowQuiz(true)} variant="outline">
-            <FileQuestion className="h-4 w-4 mr-2" />
-            Quiz Final
-          </Button>
+          <div>
+            {quizResponse ? (
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">
+                  Quiz completado em {formatDate(quizResponse.completedAt)} -{" "}
+                  {quizResponse.score}%
+                </span>
+                <Button variant="outline" disabled>
+                  <Lock className="h-4 w-4 mr-2" />
+                  Quiz Completado
+                </Button>
+              </div>
+            ) : (
+              <Button onClick={() => setShowQuiz(true)} variant="outline">
+                <FileQuestion className="h-4 w-4 mr-2" />
+                Quiz Final
+              </Button>
+            )}
+          </div>
         )}
       </div>
 
@@ -243,10 +295,7 @@ export default function CoursePage({
           quiz={quiz}
           open={showQuiz}
           onOpenChange={setShowQuiz}
-          onComplete={() => {
-            setShowQuiz(false);
-            // Aqui você pode adicionar lógica adicional após completar o quiz
-          }}
+          onComplete={handleQuizComplete}
         />
       )}
     </div>
