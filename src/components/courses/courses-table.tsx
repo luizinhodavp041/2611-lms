@@ -10,7 +10,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import { Edit, Trash2, BookOpen, FileQuestion } from "lucide-react";
+import { Edit, Trash2, BookOpen, FileQuestion, FileEdit } from "lucide-react";
 import Link from "next/link";
 import { EditCourseDialog } from "./edit-course-dialog";
 import { DeleteCourseDialog } from "./delete-course-dialog";
@@ -24,8 +24,12 @@ interface Course {
   modules: any[];
 }
 
+interface CourseWithQuiz extends Course {
+  hasQuiz?: boolean;
+}
+
 export function CoursesTable() {
-  const [courses, setCourses] = useState<Course[]>([]);
+  const [courses, setCourses] = useState<CourseWithQuiz[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [deletingCourse, setDeletingCourse] = useState<Course | null>(null);
@@ -35,7 +39,29 @@ export function CoursesTable() {
     try {
       const response = await fetch("/api/courses");
       const data = await response.json();
-      setCourses(data);
+
+      // Verificar quais cursos já têm quiz
+      const coursesWithQuizStatus = await Promise.all(
+        data.map(async (course: Course) => {
+          try {
+            const quizResponse = await fetch(
+              `/api/quiz?courseId=${course._id}`
+            );
+            return {
+              ...course,
+              hasQuiz: quizResponse.ok && (await quizResponse.json()) !== null,
+            };
+          } catch (error) {
+            console.error(
+              `Erro ao verificar quiz do curso ${course._id}:`,
+              error
+            );
+            return { ...course, hasQuiz: false };
+          }
+        })
+      );
+
+      setCourses(coursesWithQuizStatus);
     } catch (error) {
       console.error("Erro ao buscar cursos:", error);
     } finally {
@@ -46,6 +72,18 @@ export function CoursesTable() {
   useEffect(() => {
     fetchCourses();
   }, []);
+
+  const handleQuizClick = async (course: CourseWithQuiz) => {
+    if (course.hasQuiz) {
+      // Aqui você pode redirecionar para a página de edição do quiz
+      // ou mostrar um modal de edição
+      alert(
+        "Este curso já possui um quiz. A edição será implementada em breve."
+      );
+      return;
+    }
+    setCreatingQuiz(course);
+  };
 
   if (loading) {
     return <div>Carregando...</div>;
@@ -100,9 +138,14 @@ export function CoursesTable() {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => setCreatingQuiz(course)}
+                      onClick={() => handleQuizClick(course)}
+                      title={course.hasQuiz ? "Quiz já existe" : "Criar Quiz"}
                     >
-                      <FileQuestion className="h-4 w-4" />
+                      {course.hasQuiz ? (
+                        <FileEdit className="h-4 w-4" />
+                      ) : (
+                        <FileQuestion className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                 </TableCell>
