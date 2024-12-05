@@ -30,7 +30,7 @@ interface QuizResponse {
     email: string;
   };
   quiz: {
-    course: Course;
+    course: Course | null;
   };
   score: number;
   completedAt: string;
@@ -46,41 +46,57 @@ export default function QuizResponsesPage() {
   const [courses, setCourses] = useState<Course[]>([]);
   const [selectedCourse, setSelectedCourse] = useState<string>("all");
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetchCourses();
-    fetchResponses();
+    const init = async () => {
+      try {
+        await fetchCourses();
+        await fetchResponses();
+      } catch (err) {
+        setError("Erro ao carregar dados iniciais");
+        console.error(err);
+      }
+    };
+    init();
   }, []);
 
   useEffect(() => {
-    fetchResponses();
+    if (!loading) {
+      fetchResponses();
+    }
   }, [selectedCourse]);
 
   const fetchCourses = async () => {
     try {
       const response = await fetch("/api/courses");
-      if (response.ok) {
-        const data = await response.json();
-        setCourses(data);
-      }
+      if (!response.ok)
+        throw new Error(`HTTP error! status: ${response.status}`);
+      const data = await response.json();
+      setCourses(data);
     } catch (error) {
       console.error("Erro ao buscar cursos:", error);
+      setError("Não foi possível carregar os cursos");
+      throw error;
     }
   };
 
   const fetchResponses = async () => {
     try {
+      setLoading(true);
       const url =
         selectedCourse && selectedCourse !== "all"
           ? `/api/quiz/response?courseId=${selectedCourse}`
           : "/api/quiz/response";
       const response = await fetch(url);
-      if (response.ok) {
-        const data = await response.json();
-        setResponses(data);
-      }
+      if (!response.ok)
+        throw new Error(`HTTP error! status: ${response.status}`);
+      const data = await response.json();
+      setResponses(data);
+      setError(null);
     } catch (error) {
       console.error("Erro ao buscar respostas:", error);
+      setError("Não foi possível carregar as respostas");
     } finally {
       setLoading(false);
     }
@@ -105,7 +121,17 @@ export default function QuizResponsesPage() {
     : "0";
 
   if (loading) {
-    return <div>Carregando...</div>;
+    return (
+      <div className="flex justify-center items-center h-64">Carregando...</div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex justify-center items-center h-64 text-red-600">
+        {error}
+      </div>
+    );
   }
 
   return (
@@ -185,7 +211,9 @@ export default function QuizResponsesPage() {
               {responses.map((response) => (
                 <TableRow key={response._id}>
                   <TableCell>{response.user.name}</TableCell>
-                  <TableCell>{response.quiz.course.title}</TableCell>
+                  <TableCell>
+                    {response.quiz.course?.title ?? "Curso não encontrado"}
+                  </TableCell>
                   <TableCell>{response.score}%</TableCell>
                   <TableCell>
                     {new Date(response.completedAt).toLocaleDateString()}
