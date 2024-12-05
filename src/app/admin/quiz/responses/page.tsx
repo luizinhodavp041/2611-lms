@@ -17,6 +17,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Info } from "lucide-react";
 
 interface Course {
   _id: string;
@@ -34,11 +41,7 @@ interface QuizResponse {
   };
   score: number;
   completedAt: string;
-  answers: {
-    question: string;
-    selectedAnswer: number;
-    isCorrect: boolean;
-  }[];
+  attemptsBeforePass: number;
 }
 
 export default function QuizResponsesPage() {
@@ -102,7 +105,6 @@ export default function QuizResponsesPage() {
     }
   };
 
-  // Calcula estatísticas
   const averageScore = responses.length
     ? (
         responses.reduce((acc, r) => acc + r.score, 0) / responses.length
@@ -203,6 +205,7 @@ export default function QuizResponsesPage() {
                 <TableHead>Aluno</TableHead>
                 <TableHead>Curso</TableHead>
                 <TableHead>Pontuação</TableHead>
+                <TableHead>Tentativas</TableHead>
                 <TableHead>Data</TableHead>
                 <TableHead>Status</TableHead>
               </TableRow>
@@ -215,6 +218,29 @@ export default function QuizResponsesPage() {
                     {response.quiz.course?.title ?? "Curso não encontrado"}
                   </TableCell>
                   <TableCell>{response.score}%</TableCell>
+                  <TableCell>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger className="flex items-center gap-1">
+                          {response.attemptsBeforePass || 1}
+                          <Info className="h-4 w-4 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {response.score >= 70
+                            ? `Aprovado após ${
+                                response.attemptsBeforePass
+                              } tentativa${
+                                response.attemptsBeforePass > 1 ? "s" : ""
+                              }`
+                            : `Reprovado após ${
+                                response.attemptsBeforePass
+                              } tentativa${
+                                response.attemptsBeforePass > 1 ? "s" : ""
+                              }`}
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </TableCell>
                   <TableCell>
                     {new Date(response.completedAt).toLocaleDateString()}
                   </TableCell>
@@ -235,7 +261,7 @@ export default function QuizResponsesPage() {
               {responses.length === 0 && (
                 <TableRow>
                   <TableCell
-                    colSpan={5}
+                    colSpan={6}
                     className="text-center text-muted-foreground py-6"
                   >
                     Nenhuma resposta encontrada

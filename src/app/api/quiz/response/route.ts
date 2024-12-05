@@ -5,6 +5,25 @@ import Quiz from "@/models/Quiz";
 import User from "@/models/User";
 import { getSession } from "@/lib/auth/auth";
 
+interface ResponseGroup {
+  _id: string;
+  user: {
+    _id: string;
+    name: string;
+    email: string;
+  };
+  quiz: {
+    _id: string;
+    course: {
+      _id: string;
+      title: string;
+    } | null;
+  };
+  score: number;
+  completedAt: string;
+  answers: any[];
+}
+
 export async function GET(request: Request) {
   try {
     await connectDB();
@@ -24,17 +43,15 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const courseId = searchParams.get("courseId");
 
-    // Constrói a query base
-    let query = {};
-
+    // Busca todas as respostas para poder calcular tentativas
+    let baseQuery = {};
     if (courseId) {
       const quizzes = await Quiz.find({ course: courseId });
       const quizIds = quizzes.map((quiz) => quiz._id);
-      query = { quiz: { $in: quizIds } };
+      baseQuery = { quiz: { $in: quizIds } };
     }
 
-    // Busca respostas com validação adicional
-    const responses = await QuizResponse.find(query)
+    const allResponses = await QuizResponse.find(baseQuery)
       .populate("user", "name email")
       .populate({
         path: "quiz",
@@ -46,31 +63,74 @@ export async function GET(request: Request) {
       .sort({ completedAt: -1 });
 
     // Filtra respostas sem quiz ou curso válido
-    const validResponses = responses.filter(
+    const validResponses = allResponses.filter(
       (response) => response.quiz && response.quiz.course
     );
 
-    // Mapeia as respostas para garantir formato consistente
-    const formattedResponses = validResponses.map((response) => ({
-      _id: response._id,
-      user: {
-        name: response.user?.name || "Usuário não encontrado",
-        email: response.user?.email || "",
-      },
-      quiz: {
-        course: response.quiz?.course
-          ? {
-              _id: response.quiz.course._id,
-              title: response.quiz.course.title,
-            }
-          : null,
-      },
-      score: response.score,
-      completedAt: response.completedAt,
-      answers: response.answers,
-    }));
+    // Agrupa respostas por usuário e quiz
+    const responseGroups = validResponses.reduce<
+      Record<string, ResponseGroup[]>
+    >((groups, response) => {
+      const key = `${response.user._id}-${response.quiz._id}`;
+      if (!groups[key]) {
+        groups[key] = [];
+      }
+      groups[key].push(response.toObject());
+      return groups;
+    }, {});
 
-    return NextResponse.json(formattedResponses);
+    // Processa cada grupo para encontrar a resposta aprovada e contar tentativas
+    const processedResponses = Object.values(responseGroups).map(
+      (group: ResponseGroup[]) => {
+        // Ordena respostas por data
+        const sortedResponses = group.sort(
+          (a, b) =>
+            new Date(a.completedAt).getTime() -
+            new Date(b.completedAt).getTime()
+        );
+
+        // Encontra a primeira resposta aprovada
+        const passedResponseIndex = sortedResponses.findIndex(
+          (r) => r.score >= 70
+        );
+        const finalResponse =
+          passedResponseIndex !== -1
+            ? sortedResponses[passedResponseIndex]
+            : sortedResponses[sortedResponses.length - 1];
+
+        // Formata a resposta
+        return {
+          _id: finalResponse._id,
+          user: {
+            name: finalResponse.user?.name || "Usuário não encontrado",
+            email: finalResponse.user?.email || "",
+          },
+          quiz: {
+            course: finalResponse.quiz?.course
+              ? {
+                  _id: finalResponse.quiz.course._id,
+                  title: finalResponse.quiz.course.title,
+                }
+              : null,
+          },
+          score: finalResponse.score,
+          completedAt: finalResponse.completedAt,
+          answers: finalResponse.answers,
+          attemptsBeforePass:
+            passedResponseIndex !== -1
+              ? passedResponseIndex + 1
+              : sortedResponses.length,
+        };
+      }
+    );
+
+    // Ordena por data de conclusão (mais recentes primeiro)
+    const sortedResponses = processedResponses.sort(
+      (a, b) =>
+        new Date(b.completedAt).getTime() - new Date(a.completedAt).getTime()
+    );
+
+    return NextResponse.json(sortedResponses);
   } catch (error) {
     console.error("Erro ao buscar respostas:", error);
     return new NextResponse("Erro interno do servidor", { status: 500 });
