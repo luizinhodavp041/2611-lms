@@ -310,9 +310,18 @@ export default function CoursePage({
             {quizResponse ? (
               <div className="flex items-center gap-2">
                 <span className="text-sm text-muted-foreground">
-                  Quiz completado em {formatDate(quizResponse.completedAt)} -{" "}
+                  Última tentativa:{" "}
+                  {new Date(quizResponse.completedAt).toLocaleDateString()} -{" "}
                   {quizResponse.score}%
                 </span>
+                <Button
+                  onClick={() => setShowQuiz(true)}
+                  variant="outline"
+                  className="gap-2"
+                >
+                  <FileQuestion className="h-4 w-4" />
+                  Tentar Novamente
+                </Button>
                 {quizResponse.score >= 70 && (
                   <>
                     {certificate ? (
@@ -337,14 +346,14 @@ export default function CoursePage({
                     )}
                   </>
                 )}
-                <Button variant="outline" disabled>
-                  <Lock className="h-4 w-4 mr-2" />
-                  Quiz Completado
-                </Button>
               </div>
             ) : (
-              <Button onClick={() => setShowQuiz(true)} variant="outline">
-                <FileQuestion className="h-4 w-4 mr-2" />
+              <Button
+                onClick={() => setShowQuiz(true)}
+                variant="outline"
+                className="gap-2"
+              >
+                <FileQuestion className="h-4 w-4" />
                 Quiz Final
               </Button>
             )}
