@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 // src/app/api/certificates/download/route.ts
 import { NextResponse } from "next/server";
 import connectDB from "@/lib/db/mongodb";
